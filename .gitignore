@@ -1,3 +1,6 @@
 # Redot 4+ specific ignores
 .godot/
 /android/
+
+# Keep raw Movie Maker footage out of version control.
+/marketing/*.avi
