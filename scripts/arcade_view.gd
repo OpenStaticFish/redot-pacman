@@ -61,10 +61,19 @@ var capture_started: bool = false
 var screenshot_index: int = 0
 var quitting: bool = false
 var hero_labels: Array[Label] = []
+var web_build: bool = OS.has_feature("web")
+var web_maze_normal: Texture2D
+var web_maze_power: Texture2D
+var style_pool: Array[StyleBoxFlat] = []
+var style_index: int = 0
 
 
 func _ready() -> void:
 	random.seed = 404
+	if web_build:
+		Engine.max_fps = 60
+		web_maze_normal = load("res://assets/web/maze_normal.png")
+		web_maze_power = load("res://assets/web/maze_power.png")
 	audio = ArcadeAudio.new()
 	var preferences := ConfigFile.new()
 	if preferences.load("user://dot_eater.cfg") == OK:
@@ -90,14 +99,21 @@ func _ready() -> void:
 
 
 func _build_brand_layers() -> void:
-	var backdrop := ColorRect.new()
+	var backdrop: Control
+	if web_build:
+		var baked := TextureRect.new()
+		baked.texture = load("res://assets/web/backdrop.png")
+		backdrop = baked
+	else:
+		var procedural := ColorRect.new()
+		var background_material := ShaderMaterial.new()
+		background_material.shader = BRAND_STYLE.BACKDROP
+		procedural.material = background_material
+		backdrop = procedural
 	backdrop.name = "RedotPixelBackdrop"
 	backdrop.size = SIZE
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	backdrop.z_index = -10
-	var background_material := ShaderMaterial.new()
-	background_material.shader = BRAND_STYLE.BACKDROP
-	backdrop.material = background_material
 	add_child(backdrop)
 	_add_gradient_heading("DOT", Vector2(56, 244), 100, 0.0)
 	_add_gradient_heading("EATER.", Vector2(56, 337), 91, 0.16)
@@ -314,6 +330,12 @@ func _exit_tree() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_quit_gracefully()
+	elif web_build and what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		get_tree().paused = true
+		if is_instance_valid(audio):
+			audio.set_game_paused(true)
+	elif web_build and what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		get_tree().paused = false
 
 
 func _quit_gracefully() -> void:
@@ -440,6 +462,7 @@ func _update_effects(delta: float) -> void:
 
 
 func _draw() -> void:
+	style_index = 0
 	_draw_background()
 	_draw_header()
 	_draw_pitch()
@@ -711,6 +734,12 @@ func _maze_outline_color() -> Color:
 
 func _draw_maze() -> void:
 	var powered: bool = game.power_time > 0.0
+	if web_build:
+		var texture: Texture2D = web_maze_power if powered else web_maze_normal
+		if game.phase == GameSession.Phase.CLEAR:
+			texture = web_maze_power if sin(time * 12.0) > 0.0 else web_maze_normal
+		draw_texture_rect(texture, BOARD_RECT, false)
+		return
 	var wall_fill: Color = BRAND_STYLE.MAZE_WALL_POWER if powered else BRAND_STYLE.MAZE_WALL
 	for y in ArcadeMaze.HEIGHT:
 		for x in ArcadeMaze.WIDTH:
@@ -943,7 +972,11 @@ func _board_position(grid_position: Vector2) -> Vector2:
 
 
 func _rounded(rect: Rect2, color: Color, radius: int, border: Color = Color.TRANSPARENT, width: int = 1) -> void:
-	var style := StyleBoxFlat.new()
+	# One resource per draw slot, reused next frame without an unbounded color cache.
+	if style_index == style_pool.size():
+		style_pool.append(StyleBoxFlat.new())
+	var style: StyleBoxFlat = style_pool[style_index]
+	style_index += 1
 	style.bg_color = color
 	style.set_corner_radius_all(radius)
 	style.border_color = border

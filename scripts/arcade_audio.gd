@@ -9,6 +9,7 @@ var sounds: Dictionary = {}
 var music: AudioStreamPlayer
 var voice_index: int = 0
 var dot_index: int = 0
+var game_paused: bool = false
 
 
 func _ready() -> void:
@@ -29,6 +30,12 @@ func _ready() -> void:
 	music.stream = _make_music()
 	music.volume_db = -25.0
 	add_child(music)
+	if OS.has_feature("web"):
+		# Decode all WAV samples at load time, rather than stalling the main thread
+		# the first time a power dot, ghost, or death effect is played.
+		for stream: AudioStreamWAV in sounds.values():
+			AudioServer.register_stream_as_sample(stream)
+		AudioServer.register_stream_as_sample(music.stream)
 	music.play()
 	_set_volume()
 
@@ -61,6 +68,11 @@ func _set_volume() -> void:
 
 
 func set_game_paused(paused: bool) -> void:
+	# The web sample backend restarts/copies a buffer on every unpause call,
+	# even when already playing. Only send transitions, never every physics tick.
+	if paused == game_paused:
+		return
+	game_paused = paused
 	if is_instance_valid(music):
 		music.stream_paused = paused
 

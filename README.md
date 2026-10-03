@@ -71,6 +71,44 @@ GDScript and the Compatibility renderer.
 - Three lives per run. Personal best and sound preferences persist locally.
 - Four ghost personalities: direct pursuit, ambush, flanking, and shy pursuit.
 
+## Web export and Railway
+
+**[Play DOT EATER in your browser](https://web-production-72c7.up.railway.app/)**
+
+Install the **Redot 26.2 export templates**, then build the browser version:
+
+```sh
+bash export-web.sh
+```
+
+Set `REDOT_BIN` if your engine executable has a different path. The `Web`
+preset uses the Compatibility renderer and a single-threaded WebAssembly
+runtime. The generated `build/web/` bundle contains the game and an nginx
+container configured for Railway's `PORT`, compression, and `/healthz` check.
+
+With the Railway CLI logged in and linked to the game's project:
+
+```sh
+railway up build/web --path-as-root --no-gitignore --service web --environment production
+railway domain --service web --port 8080
+```
+
+Re-run the export and upload commands after game changes. Generated files are
+ignored by Git; `--no-gitignore` includes them in this bundle-only upload.
+Click **PLAY NOW** or press **Enter** to play. Browsers may require a click or
+keypress before allowing audio; score and mute preferences stay in browser storage.
+
+The web renderer uses baked maze/background art in `assets/web/` to avoid
+rebuilding static neon geometry each frame. After changing maze geometry or
+its visual style, regenerate that art with a graphics display before exporting:
+
+```sh
+redot --path . -s tools/bake_web_art.gd
+```
+
+Audio pause updates are transition-only: repeatedly assigning `stream_paused`
+can restart and copy music buffers in the web sample backend.
+
 ## Make an X clip
 
 Ready-made files are in `marketing/`: 1440p gameplay stills and a **20-second,

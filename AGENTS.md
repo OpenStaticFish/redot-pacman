@@ -22,6 +22,7 @@ redot --headless --path . -s tests/input_test.gd
 - UI drawing and button hit rectangles share fixed 1600×900 design coordinates. Keep hit areas aligned when moving controls; decorative `Label`/`ColorRect` children must ignore mouse input.
 - Preserve filtering of `InputEvent.DEVICE_ID_EMULATION`: accepting both touch and its emulated mouse event double-toggles controls. Tests convert design positions through canvas/screen transforms before injecting input.
 - Shared website colors/shaders live in `scripts/redot_style.gd`; UI fonts are Roboto variations, scores/telemetry use JetBrains Mono. Maze walls and warp cues are blue normally, Redot red while `power_time > 0`, then blue again.
+- Web builds draw baked maze/background textures from `assets/web/`. After maze geometry or style changes, regenerate them with `redot --path . -s tools/bake_web_art.gd` on a graphics display, then run `bash export-web.sh`. Audio pause assignments must be transition-only: the web sample backend can restart/copy music on redundant unpause calls.
 
 ## Assets and captures
 

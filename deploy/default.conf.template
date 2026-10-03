@@ -1,0 +1,30 @@
+server {
+    listen ${PORT};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # WebAssembly must be served with application/wasm (nginx mime.types).
+    gzip on;
+    gzip_vary on;
+    gzip_types application/javascript application/wasm application/octet-stream;
+
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    add_header Cross-Origin-Embedder-Policy require-corp always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Cache-Control "no-cache" always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location = / {
+        try_files /index.html =404;
+    }
+
+    location / {
+        try_files $uri =404;
+    }
+}

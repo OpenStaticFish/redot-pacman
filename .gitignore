@@ -4,3 +4,6 @@
 
 # Keep raw Movie Maker footage out of version control.
 /marketing/*.avi
+
+# Generated browser export and deployment bundle.
+/build/
