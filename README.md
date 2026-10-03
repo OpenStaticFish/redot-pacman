@@ -49,16 +49,18 @@ GDScript and the Compatibility renderer.
 
 ## Make an X clip
 
-Ready-made files are in `marketing/`: a gameplay still and a **20-second,
-1600 × 900, 60 FPS MP4** with arcade audio.
+Ready-made files are in `marketing/`: 1440p gameplay stills and a **20-second,
+2560 × 1440, 60 FPS MP4** with arcade audio.
 
-The UI is composed at **1600 × 900 (16:9)**. Attract mode plays the real game
+The UI is composed at **1600 × 900 (16:9)** and rendered natively at **2560 × 1440**
+for capture. Movie Maker uses a `movie` feature override for that window size.
+Attract mode plays the real game
 with an AI pilot, including power dots, ghost combos, and the live commit log.
 Press **Tab** for a fresh demo, **F11** for fullscreen, and record it with OBS,
 or use the engine's built-in Movie Maker:
 
 ```sh
-redot --path . --resolution 1600x900 --fixed-fps 60 \
+redot --path . --resolution 2560x1440 --fixed-fps 60 \
   --write-movie /tmp/dot-eater.avi --quit-after 1200 -- --demo
 
 ffmpeg -i /tmp/dot-eater.avi \
@@ -76,9 +78,23 @@ must exist. Quit normally so the movie's header is finalized.
 For a reproducible clean still:
 
 ```sh
-redot --path . --resolution 1600x900 --fixed-fps 60 -- \
-  --demo --capture=/tmp/dot-eater.png --capture-frame=480
+redot --path . --fixed-fps 60 -- \
+  --demo --1440p --capture=/tmp/dot-eater.png --capture-frame=480
 ```
+
+`./launch.sh -- --1440p` also opens a 2560 × 1440 window for normal play.
+
+## Website-matched UI
+
+The interface follows https://www.redotengine.org/: near-black ink, graphite
+cards, the exact `#FF3B0A` primary accent, Roboto typography, warm gradient
+headings, orange-outline controls, and a subtle pixel-blast backdrop.
+Shared palette tokens live in `scripts/redot_style.gd`. The supplied Redot logo
+assets retain their original colors and proportions.
+
+The maze uses classic blue walls during normal play, switches to Redot red while
+a power dot is active, and returns to blue as soon as the power timer runs out.
+Warp-port panels, the ghost-house gate, and tunnel indicators follow the same state.
 
 Caption material:
 
@@ -107,6 +123,8 @@ notices, and the in-game credits.
 - `scripts/game_session.gd` — rules, ghost personalities, and autoplay.
 - `scripts/arcade_view.gd` — custom-drawn cabinet UI, controls, and effects.
 - `scripts/arcade_icons.gd` — crisp, shared vector icons for the arcade HUD.
+- `scripts/redot_style.gd` — shared Redot website palette and shader resources.
+- `shaders/` — native pixel-blast background and warm gradient headline.
 - `scripts/arcade_audio.gd` — original procedural chip music and sound effects.
 
 ## Verify

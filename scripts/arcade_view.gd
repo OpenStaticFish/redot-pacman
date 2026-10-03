@@ -3,14 +3,14 @@ extends Node2D
 
 const REDION: Texture2D = preload("res://assets/branding/redion.svg")
 const REDION_OUTLINE: Texture2D = preload("res://assets/branding/redion_outline.svg")
-const WORDMARK: Texture2D = preload("res://assets/branding/redot_wordmark.svg")
 const GODOT_ICON: Texture2D = preload("res://assets/godot/icon_color.svg")
-const REGULAR: Font = preload("res://assets/fonts/Lato-Regular.ttf")
-const BOLD: Font = preload("res://assets/fonts/Lato-Bold.ttf")
-const BLACK: Font = preload("res://assets/fonts/Lato-Black.ttf")
+const REGULAR: Font = preload("res://assets/fonts/Roboto-Variable.ttf")
+const BOLD: Font = preload("res://assets/fonts/Roboto-Bold.tres")
+const BLACK: Font = preload("res://assets/fonts/Roboto-Heading.tres")
 const MONO: Font = preload("res://assets/fonts/JetBrainsMono-Regular.ttf")
 const MONO_BOLD: Font = preload("res://assets/fonts/JetBrainsMono-Bold.ttf")
 const ICONS = preload("res://scripts/arcade_icons.gd")
+const BRAND_STYLE = preload("res://scripts/redot_style.gd")
 
 const SIZE := Vector2(1600, 900)
 const BOARD_ORIGIN := Vector2(435, 163)
@@ -23,16 +23,15 @@ const MUTE_BUTTON := Rect2(1132, 31, 166, 50)
 const PAUSE_BUTTON := Rect2(1310, 31, 162, 50)
 const FULLSCREEN_BUTTON := Rect2(1484, 31, 56, 50)
 
-const BG := Color("090c12")
-const INK := Color("f3f3ed")
-const MUTED := Color("95a1b3")
-const FAINT := Color("5f6e82")
-const ORANGE := Color("ff6e01")
-const RED := Color("ff1300")
-const CYAN := Color("50c6df")
-const GREEN := Color("9be8b8")
-const PANEL := Color("11161e")
-const EDGE := Color("27313e")
+const BG: Color = BRAND_STYLE.INK
+const INK: Color = BRAND_STYLE.TEXT
+const MUTED: Color = BRAND_STYLE.TEXT_SECONDARY
+const FAINT: Color = BRAND_STYLE.TEXT_DIM
+const ORANGE: Color = BRAND_STYLE.BRAND
+const RED: Color = BRAND_STYLE.BRAND_DARK
+const PEACH: Color = BRAND_STYLE.PEACH
+const PANEL: Color = BRAND_STYLE.SURFACE
+const EDGE: Color = BRAND_STYLE.BORDER
 
 var game := GameSession.new()
 var audio: ArcadeAudio
@@ -61,6 +60,7 @@ var capture_frame: int = 240
 var capture_started: bool = false
 var screenshot_index: int = 0
 var quitting: bool = false
+var hero_labels: Array[Label] = []
 
 
 func _ready() -> void:
@@ -71,6 +71,7 @@ func _ready() -> void:
 		best_score = int(preferences.get_value("arcade", "best_score", 0))
 		audio.muted = bool(preferences.get_value("arcade", "muted", false))
 	add_child(audio)
+	_build_brand_layers()
 	game.arcade_event.connect(_on_arcade_event)
 	_build_wall_paths()
 	var autoplay: bool = true
@@ -81,9 +82,43 @@ func _ready() -> void:
 			capture_path = argument.trim_prefix("--capture=")
 		elif argument.begins_with("--capture-frame="):
 			capture_frame = maxi(2, int(argument.trim_prefix("--capture-frame=")))
+		elif argument == "--1440p":
+			get_window().size = Vector2i(2560, 1440)
 	game.start(autoplay)
 	get_window().title = "DOT EATER / Redot After Hours Arcade"
 	get_tree().auto_accept_quit = false
+
+
+func _build_brand_layers() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.name = "RedotPixelBackdrop"
+	backdrop.size = SIZE
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.z_index = -10
+	var background_material := ShaderMaterial.new()
+	background_material.shader = BRAND_STYLE.BACKDROP
+	backdrop.material = background_material
+	add_child(backdrop)
+	_add_gradient_heading("DOT", Vector2(56, 244), 100, 0.0)
+	_add_gradient_heading("EATER.", Vector2(56, 337), 91, 0.16)
+
+
+func _add_gradient_heading(text: String, baseline: Vector2, font_size: int, gradient_offset: float) -> void:
+	var label := Label.new()
+	label.text = text
+	label.position = baseline - Vector2(0, BLACK.get_ascent(font_size))
+	label.size = Vector2(340, BLACK.get_height(font_size))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 2
+	label.add_theme_font_override("font", BLACK)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	var gradient_material := ShaderMaterial.new()
+	gradient_material.shader = BRAND_STYLE.HERO_TEXT
+	gradient_material.set_shader_parameter("line_offset", gradient_offset)
+	label.material = gradient_material
+	add_child(label)
+	hero_labels.append(label)
 
 
 func _physics_process(delta: float) -> void:
@@ -103,6 +138,8 @@ func _process(delta: float) -> void:
 	pulse = maxf(0.0, pulse - delta * 1.8)
 	shake = maxf(0.0, shake - delta * 20.0)
 	mouse_position = get_global_mouse_position()
+	for label: Label in hero_labels:
+		label.visible = not credits_open
 	_update_effects(delta)
 	var over_button: bool = PLAY_BUTTON.has_point(mouse_position) or DEMO_BUTTON.has_point(mouse_position) or MUTE_BUTTON.has_point(mouse_position) or PAUSE_BUTTON.has_point(mouse_position) or FULLSCREEN_BUTTON.has_point(mouse_position)
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if over_button else Input.CURSOR_ARROW)
@@ -324,8 +361,8 @@ func _on_arcade_event(kind: String, grid_position: Vector2, points: int) -> void
 		"ghost":
 			feed_title = "404: GHOST NOT FOUND."
 			feed_detail = "+%d points. That's one way to resolve it." % points
-			_emit_sparks(position, 25, CYAN, 170.0)
-			_add_floater(position, "+%d" % points, CYAN)
+			_emit_sparks(position, 25, PEACH, 170.0)
+			_add_floater(position, "+%d" % points, PEACH)
 			shake = 2.0
 		"hit":
 			feed_title = "MERGE CONFLICT. OUCH."
@@ -429,41 +466,37 @@ func _draw() -> void:
 
 
 func _draw_background() -> void:
-	draw_rect(Rect2(Vector2.ZERO, SIZE), BG)
-	for i in range(8, 0, -1):
-		draw_circle(Vector2(180, 255), 70.0 + i * 43.0, Color(1.0, 0.15, 0.015, 0.006))
-		draw_circle(Vector2(860, 460), 220.0 + i * 45.0, Color(0.08, 0.47, 0.7, 0.006))
-	for x in range(28, 1600, 32):
-		for y in range(24, 900, 32):
-			draw_circle(Vector2(x, y), 0.7, Color(0.4, 0.5, 0.6, 0.10))
+	draw_rect(Rect2(0, 0, 1600, 100), BRAND_STYLE.HEADER)
 	draw_line(Vector2(60, 100), Vector2(1540, 100), EDGE, 1.0)
 	draw_line(Vector2(60, 852), Vector2(1540, 852), EDGE, 1.0)
+	draw_line(Vector2(530, 852), Vector2(1070, 852), Color(ORANGE, 0.18), 1.0)
 
 
 func _draw_header() -> void:
-	_texture_fit(WORDMARK, Rect2(60, 29, 160, 61))
-	draw_line(Vector2(252, 40), Vector2(252, 77), EDGE, 1.0)
-	_text("AFTER HOURS ARCADE", Vector2(278, 53), 13, INK, MONO_BOLD)
-	_text("BY REDOT / EST. AFTER BEDTIME", Vector2(278, 74), 10, MUTED, MONO)
+	_texture_fit(REDION, Rect2(60, 32, 36, 37))
+	_text("Redot Engine", Vector2(109, 62), 25, INK, BOLD)
+	draw_line(Vector2(278, 40), Vector2(278, 77), EDGE, 1.0)
+	_text("AFTER HOURS ARCADE", Vector2(301, 53), 13, INK, MONO_BOLD)
+	_text("OPEN-SOURCE GAME CREATION", Vector2(301, 74), 10, MUTED, MONO)
 	_text("OPEN SOURCE. FULL APPETITE.", Vector2(678, 62), 12, MUTED, MONO)
-	_rounded(Rect2(934, 38, 172, 36), Color("10221e"), 18, Color("254638"))
-	_glow(Vector2(953, 56), GREEN, 7.0, 0.04)
-	draw_circle(Vector2(953, 56), 3.5, GREEN)
-	_text("FREE PLAY / LIVE", Vector2(968, 61), 11, GREEN, MONO_BOLD)
+	_rounded(Rect2(934, 38, 172, 36), BRAND_STYLE.BRAND_WASH, 18, Color(ORANGE, 0.45))
+	_glow(Vector2(953, 56), ORANGE, 7.0, 0.04)
+	draw_circle(Vector2(953, 56), 3.5, ORANGE)
+	_text("FREE PLAY / LIVE", Vector2(968, 61), 11, ORANGE, MONO_BOLD)
 	_toolbar_button(MUTE_BUTTON, "MUTED" if audio.muted else "SOUND ON", "M", ICONS.Symbol.MUTED if audio.muted else ICONS.Symbol.SOUND, audio.muted)
 	var paused: bool = game.phase == GameSession.Phase.PAUSED
 	_toolbar_button(PAUSE_BUTTON, "RESUME" if paused else "PAUSE", "P", ICONS.Symbol.PLAY if paused else ICONS.Symbol.PAUSE, paused)
 	var hovered: bool = FULLSCREEN_BUTTON.has_point(mouse_position)
-	_rounded(FULLSCREEN_BUTTON, Color("202b37") if hovered else PANEL, 8, ORANGE if hovered else Color("344354"))
-	_icon(ICONS.Symbol.FULLSCREEN, Vector2(1512, 49), INK, 0.85)
+	_rounded(FULLSCREEN_BUTTON, BRAND_STYLE.BRAND_WASH if hovered else BRAND_STYLE.INK_DEEP, 11, ORANGE if hovered else Color(ORANGE, 0.55))
+	_icon(ICONS.Symbol.FULLSCREEN, Vector2(1512, 49), ORANGE, 0.85)
 	_text_center("F11", Vector2(1512, 72), 10, MUTED, MONO_BOLD)
 
 
 func _draw_pitch() -> void:
-	_text("001 / THE REDOT ARCADE", Vector2(60, 151), 12, ORANGE, MONO)
-	_text("DOT", Vector2(56, 244), 100, INK, BLACK)
-	_text("EATER.", Vector2(56, 337), 91, ORANGE, BLACK)
-	draw_rect(Rect2(62, 356, 42, 4), RED)
+	_glow(Vector2(64, 145), ORANGE, 8.0, 0.025)
+	draw_circle(Vector2(64, 145), 3.0, ORANGE)
+	_text("001 / THE REDOT ARCADE", Vector2(78, 151), 11, MUTED, MONO_BOLD)
+	draw_rect(Rect2(62, 356, 42, 3), ORANGE)
 	_text("Eat dots.", Vector2(60, 400), 28, INK, BOLD)
 	_text("Chase your upstream.", Vector2(60, 435), 28, INK, BOLD)
 	_text("A FORK WITH AN APPETITE.", Vector2(60, 466), 12, MUTED, MONO)
@@ -479,29 +512,30 @@ func _draw_pitch() -> void:
 	draw_line(Vector2(60, 551), Vector2(360, 551), EDGE, 1.0)
 	_text("NO QUARTERS. NO PERMISSION NEEDED.", Vector2(60, 568), 11, MUTED, MONO)
 	var hovered: bool = PLAY_BUTTON.has_point(mouse_position)
-	_rounded(Rect2(PLAY_BUTTON.position + Vector2(0, 4), PLAY_BUTTON.size), Color("692300"), 9)
-	_rounded(PLAY_BUTTON, ORANGE.lightened(0.12) if hovered else ORANGE, 9, ORANGE.lightened(0.2))
-	draw_line(PLAY_BUTTON.position + Vector2(10, 2), Vector2(PLAY_BUTTON.end.x - 10, PLAY_BUTTON.position.y + 2), Color(1, 0.8, 0.5, 0.3), 1.0)
-	var play_text: String = "PLAY NOW"
+	for i in range(3, 0, -1):
+		_rounded(Rect2(PLAY_BUTTON.position + Vector2(0, 6), PLAY_BUTTON.size).grow(i * 4), Color(ORANGE, 0.018), 11 + i * 4)
+	_rounded(PLAY_BUTTON, ORANGE.lightened(0.1) if hovered else ORANGE, 11)
+	var play_text: String = "Play now"
 	if game.demo:
-		play_text = "PLAY NOW"
+		play_text = "Play now"
 	elif game.phase == GameSession.Phase.GAME_OVER:
-		play_text = "RUN IT BACK"
+		play_text = "Run it back"
 	else:
-		play_text = "RESTART RUN"
-	_text(play_text, Vector2(82, 615), 22, BG, BLACK)
+		play_text = "Restart run"
+	_text(play_text, Vector2(82, 615), 21, BG, BOLD)
+	_icon(ICONS.Symbol.ARROW_RIGHT, Vector2(249, 607), BG, 0.8)
 	_shortcut_badge(Rect2(274, 596, 65, 24), "ENTER" if game.demo or game.phase == GameSession.Phase.GAME_OVER else "R", BG, Color(0, 0, 0, 0.12))
 	var demo_hovered: bool = DEMO_BUTTON.has_point(mouse_position)
-	_rounded(DEMO_BUTTON, Color("1b2835") if demo_hovered else PANEL, 8, CYAN if demo_hovered else EDGE)
-	_icon(ICONS.Symbol.PLAY, Vector2(84, 675), CYAN if game.demo else MUTED, 0.7)
-	_text("AUTOPLAY DEMO", Vector2(106, 681), 14, INK, MONO_BOLD)
-	_shortcut_badge(Rect2(305, 664, 35, 22), "TAB")
-	_rounded(Rect2(60, 717, 300, 125), PANEL, 10, EDGE)
+	_rounded(DEMO_BUTTON, BRAND_STYLE.BRAND_WASH if demo_hovered else BRAND_STYLE.INK_DEEP, 11, ORANGE if demo_hovered else Color(ORANGE, 0.62))
+	_icon(ICONS.Symbol.PLAY, Vector2(84, 675), ORANGE, 0.7)
+	_text("Watch autoplay", Vector2(106, 681), 16, ORANGE, BOLD)
+	_shortcut_badge(Rect2(305, 664, 35, 22), "TAB", ORANGE)
+	_rounded(Rect2(60, 717, 300, 125), PANEL, 12, EDGE)
 	_keycap(Rect2(112, 731, 31, 29), "W", KEY_W)
 	_keycap(Rect2(76, 765, 31, 29), "A", KEY_A)
 	_keycap(Rect2(112, 765, 31, 29), "S", KEY_S)
 	_keycap(Rect2(148, 765, 31, 29), "D", KEY_D)
-	_text("FIND YOUR WAY.", Vector2(192, 749), 15, INK, BOLD)
+	_text("Find your way.", Vector2(192, 749), 16, INK, BOLD)
 	_text("WASD / arrow keys", Vector2(192, 772), 13, MUTED, REGULAR)
 	_text("Gamepad / swipe", Vector2(192, 792), 12, MUTED, REGULAR)
 	_shortcut_badge(Rect2(76, 809, 20, 21), "P")
@@ -525,12 +559,12 @@ func _draw_scoreboard() -> void:
 	_text("LIVES", Vector2(1184, 273), 11, MUTED, MONO)
 	for i in 3:
 		var center := Vector2(1197 + i * 35, 297)
-		draw_circle(center, 15.0, Color(ORANGE, 0.06) if i < game.lives else Color("151c25"))
+		draw_circle(center, 15.0, Color(ORANGE, 0.08) if i < game.lives else BRAND_STYLE.SURFACE_RAISED)
 		draw_arc(center, 15.0, 0, TAU, 28, Color(ORANGE, 0.22) if i < game.lives else EDGE, 1.0, true)
 		_texture_fit(REDION if i < game.lives else REDION_OUTLINE, Rect2(center - Vector2(10, 11), Vector2(20, 22)), Color(1, 1, 1, 1.0 if i < game.lives else 0.25))
 	_text("RELEASE", Vector2(1408, 273), 11, MUTED, MONO)
-	_rounded(Rect2(1408, 282, 108, 32), Color("192431"), 6, Color("314457"))
-	_icon(ICONS.Symbol.BRANCH, Vector2(1424, 298), CYAN, 0.7)
+	_rounded(Rect2(1408, 282, 108, 32), BRAND_STYLE.SURFACE_RAISED, 8, EDGE)
+	_icon(ICONS.Symbol.BRANCH, Vector2(1424, 298), ORANGE, 0.7)
 	_text("v.%02d" % game.level, Vector2(1440, 305), 22, INK, MONO_BOLD)
 
 
@@ -540,16 +574,16 @@ func _draw_power_panel() -> void:
 	for points: int in game.maze.pellets.values():
 		if points == 50:
 			power_dots += 1
-	_rounded(Rect2(1160, 356, 380, 158), Color("211812") if powered else PANEL, 12, Color("72401d") if powered else EDGE)
-	_icon(ICONS.Symbol.POWER, Vector2(1189, 381), ORANGE if powered else MUTED, 0.6)
+	_rounded(Rect2(1160, 356, 380, 158), BRAND_STYLE.BRAND_WASH if powered else PANEL, 12, Color(ORANGE, 0.45) if powered else EDGE)
+	_icon(ICONS.Symbol.POWER, Vector2(1189, 381), ORANGE, 0.6)
 	_text("THE FOOD CHAIN", Vector2(1206, 386), 11, ORANGE if powered else MUTED, MONO_BOLD)
-	_rounded(Rect2(1460, 370, 56, 23), Color(ORANGE, 0.1) if powered else Color("1c2733"), 5)
+	_rounded(Rect2(1460, 370, 56, 23), Color(ORANGE, 0.1) if powered else BRAND_STYLE.SURFACE_RAISED, 5)
 	_text_center("%.1fs" % game.power_time if powered else "%d LEFT" % power_dots, Vector2(1488, 386), 11, ORANGE if powered else MUTED, MONO_BOLD)
 	_text("UPSTREAM PANIC" if powered else "YOU ARE THE SNACK", Vector2(1183, 424), 25, ORANGE if powered else INK, BLACK)
 	if powered:
 		for i in 8:
 			var segment := Rect2(1184 + i * 42, 443, 38, 8)
-			_rounded(segment, Color("34291f"), 3)
+			_rounded(segment, BRAND_STYLE.BRAND_DEEP.darkened(0.45), 3)
 			var strength: float = clampf(game.power_time - i, 0.0, 1.0)
 			if strength > 0.02:
 				_rounded(Rect2(segment.position, Vector2(segment.size.x * strength, segment.size.y)), ORANGE, 3)
@@ -577,17 +611,17 @@ func _draw_ghost_roster() -> void:
 	for ghost: Dictionary in game.ghosts:
 		if not bool(ghost["returning"]) and not bool(ghost["exiting"]):
 			out_count += 1
-	_text_right("%d/4 OUT" % out_count, Vector2(1516, 568), 11, CYAN, MONO)
+	_text_right("%d/4 OUT" % out_count, Vector2(1516, 568), 11, ORANGE, MONO)
 	var names: Array[String] = ["MAIN", "PR #404", "LEGACY", "HOTFIX"]
 	for i in 4:
 		var rect := Rect2(1182 + i * 86, 582, 78, 99)
 		var center := Vector2(rect.get_center().x, 612)
 		var ghost: Dictionary = game.ghosts[i]
 		var scared: bool = game.power_time > 0.0 and not bool(ghost["returning"])
-		_rounded(rect, Color("101b27"), 7, Color(_ghost_color(i), 0.16))
-		draw_arc(center, 22.0, 0, TAU, 28, Color(_ghost_color(i), 0.12), 1.0, true)
+		_rounded(rect, BRAND_STYLE.CHROME, 8, EDGE)
+		draw_arc(center, 22.0, 0, TAU, 28, Color(ORANGE, 0.14), 1.0, true)
 		_draw_ghost(center + Vector2(0, sin(time * 3.0 + i) * 1.4), i, 1.35, scared, bool(ghost["returning"]), Vector2i.LEFT)
-		_text_center(names[i], Vector2(center.x, 650), 11, _ghost_color(i), MONO_BOLD)
+		_text_center(names[i], Vector2(center.x, 650), 11, INK, MONO_BOLD)
 		var status: String = "CHASING"
 		if bool(ghost["returning"]):
 			status = "404'D"
@@ -600,21 +634,23 @@ func _draw_ghost_roster() -> void:
 
 func _draw_feed() -> void:
 	_rounded(Rect2(1160, 717, 380, 125), PANEL, 12, EDGE)
-	draw_circle(Vector2(1187, 744), 3, GREEN if feed_age > 0.5 else ORANGE)
+	draw_circle(Vector2(1187, 744), 3, Color(ORANGE, 0.65) if feed_age > 0.5 else ORANGE)
 	_text("LIVE COMMIT LOG", Vector2(1200, 748), 11, MUTED, MONO_BOLD)
 	_text_right("JUST NOW" if feed_age < 2.0 else "%ds AGO" % int(feed_age), Vector2(1516, 748), 10, FAINT, MONO)
 	_text(feed_title, Vector2(1184, 780), 18, INK, BOLD)
 	_text(feed_detail, Vector2(1184, 804), 13, MUTED, REGULAR)
-	_icon(ICONS.Symbol.BRANCH, Vector2(1191, 825), CYAN, 0.55)
+	_icon(ICONS.Symbol.BRANCH, Vector2(1191, 825), ORANGE, 0.55)
 	_text("absolute-chaos", Vector2(1207, 829), 11, FAINT, MONO)
 
 
 func _draw_board_frame() -> void:
-	_rounded(FRAME_RECT.grow(5), Color(0.0, 0.0, 0.0, 0.2), 19)
-	_rounded(FRAME_RECT, Color("0b1119"), 14, Color("304152"))
+	for i in range(3, 0, -1):
+		_rounded(FRAME_RECT.grow(i * 4), Color(ORANGE, 0.012), 18 + i * 4)
+	_rounded(FRAME_RECT.grow(5), Color(0.0, 0.0, 0.0, 0.3), 23)
+	_rounded(FRAME_RECT, BRAND_STYLE.CHROME, 18, BRAND_STYLE.BORDER_STRONG)
 	if pulse > 0.0:
 		_rounded(FRAME_RECT.grow(2), Color.TRANSPARENT, 16, Color(ORANGE, pulse))
-	var status_color: Color = CYAN if game.demo else GREEN
+	var status_color: Color = ORANGE if game.demo else PEACH
 	if game.phase == GameSession.Phase.PAUSED:
 		status_color = ORANGE
 	draw_circle(Vector2(438, 144), 3, status_color)
@@ -623,21 +659,20 @@ func _draw_board_frame() -> void:
 		status = "PAUSED / REBASING"
 	_text(status, Vector2(451, 149), 11, status_color, MONO_BOLD)
 	_text_right(banner if banner_time > 0.0 else "ONE MAZE. ZERO CHILL.", Vector2(961, 149), 10, ORANGE if banner_time > 0.0 else MUTED, MONO)
-	_rounded(Rect2(983, 131, 101, 24), Color("17212d"), 5, EDGE)
+	_rounded(Rect2(983, 131, 101, 24), BRAND_STYLE.SURFACE_RAISED, 6, EDGE)
 	_text_center("MAZE %02d" % game.level, Vector2(1033, 148), 11, INK, MONO_BOLD)
-	draw_rect(BOARD_RECT, Color("070e16"))
+	draw_rect(BOARD_RECT, BRAND_STYLE.INK_DEEP)
 	var completion: float = float(game.collected) / game.maze.total_pellets
 	_text("DOTS", Vector2(439, 834), 11, MUTED, MONO)
 	_text("%03d" % game.maze.pellets.size(), Vector2(484, 835), 14, INK, MONO_BOLD)
-	_rounded(Rect2(535, 825, 340, 6), Color("243342"), 3)
+	_rounded(Rect2(535, 825, 340, 6), BRAND_STYLE.SURFACE_RAISED, 3)
 	if completion > 0.0:
 		_rounded(Rect2(535, 825, 340 * completion, 6), ORANGE, 3)
 	_text("%02d%%" % int(completion * 100), Vector2(890, 834), 12, ORANGE, MONO_BOLD)
 	_text_right("CLEAR THE MAZE", Vector2(1081, 834), 11, MUTED, MONO)
 	# Cabinet corner accents.
 	for corner: Vector2 in [Vector2(418, 132), Vector2(1102, 132), Vector2(418, 832), Vector2(1102, 832)]:
-		draw_circle(corner, 2.3, EDGE.lightened(0.12))
-		draw_line(corner + Vector2(-1, 1), corner + Vector2(1, -1), BG, 1.0)
+		draw_circle(corner, 1.5, Color(ORANGE, 0.35))
 
 
 func _build_wall_paths() -> void:
@@ -670,17 +705,21 @@ func _build_wall_paths() -> void:
 			wall_paths.append(path)
 
 
+func _maze_outline_color() -> Color:
+	return ORANGE if game.power_time > 0.0 else BRAND_STYLE.MAZE_OUTLINE
+
+
 func _draw_maze() -> void:
+	var powered: bool = game.power_time > 0.0
+	var wall_fill: Color = BRAND_STYLE.MAZE_WALL_POWER if powered else BRAND_STYLE.MAZE_WALL
 	for y in ArcadeMaze.HEIGHT:
 		for x in ArcadeMaze.WIDTH:
 			var cell := Vector2i(x, y)
 			if game.maze.is_wall(cell):
-				draw_rect(Rect2(BOARD_ORIGIN + Vector2(cell) * TILE, Vector2.ONE * TILE), Color("081521"))
+				draw_rect(Rect2(BOARD_ORIGIN + Vector2(cell) * TILE, Vector2.ONE * TILE), wall_fill)
 			elif game.maze.walkable(cell, true):
-				draw_circle(_board_position(Vector2(cell)), 0.6, Color(0.4, 0.6, 0.8, 0.08))
-	var wall_color := Color("318ca9")
-	if game.power_time > 0.0:
-		wall_color = Color("c36a2d")
+				draw_circle(_board_position(Vector2(cell)), 0.6, Color(PEACH, 0.055))
+	var wall_color: Color = _maze_outline_color()
 	if game.phase == GameSession.Phase.CLEAR:
 		wall_color = INK if sin(time * 12.0) > 0.0 else ORANGE
 	_draw_maze_inlays(wall_color)
@@ -690,9 +729,9 @@ func _draw_maze() -> void:
 		draw_polyline(path, wall_color, 1.5, true)
 	# The ghost-house gate: a small dashed upstream branch.
 	for i in 3:
-		draw_line(BOARD_ORIGIN + Vector2(12 * TILE + 3 + i * 8, 9 * TILE + 4), BOARD_ORIGIN + Vector2(12 * TILE + 7 + i * 8, 9 * TILE + 4), Color("80a3bb"), 1.7)
+		draw_line(BOARD_ORIGIN + Vector2(12 * TILE + 3 + i * 8, 9 * TILE + 4), BOARD_ORIGIN + Vector2(12 * TILE + 7 + i * 8, 9 * TILE + 4), Color(wall_color.lightened(0.25), 0.55), 1.7)
 	_texture_fit(GODOT_ICON, Rect2(_board_position(Vector2(12, 10)) - Vector2(11, 11), Vector2(22, 22)), Color(1, 1, 1, 0.16))
-	_text_center("UPSTREAM", _board_position(Vector2(12, 12)) + Vector2(0, 6), 10, Color(CYAN, 0.38), MONO_BOLD)
+	_text_center("UPSTREAM", _board_position(Vector2(12, 12)) + Vector2(0, 6), 10, Color(wall_color.lightened(0.25), 0.5), MONO_BOLD)
 
 
 func _draw_maze_inlays(wall_color: Color) -> void:
@@ -700,7 +739,7 @@ func _draw_maze_inlays(wall_color: Color) -> void:
 	for side in 2:
 		var column: int = 0 if side == 0 else 19
 		var plate := Rect2(BOARD_ORIGIN + Vector2(column * TILE + 14, 7 * TILE + 14), Vector2(128, 102))
-		_rounded(plate, Color("08121d"), 8, Color(wall_color, 0.28))
+		_rounded(plate, BRAND_STYLE.CHROME, 8, Color(wall_color, 0.28))
 		var center: Vector2 = plate.get_center()
 		_texture_fit(REDION_OUTLINE, Rect2(center.x - 12, plate.position.y + 12, 24, 25), Color(wall_color, 0.6))
 		_text_center("WARP LINK", Vector2(center.x, plate.position.y + 58), 11, Color(wall_color.lightened(0.25), 0.7), MONO_BOLD)
@@ -708,29 +747,30 @@ func _draw_maze_inlays(wall_color: Color) -> void:
 		for i in 3:
 			draw_circle(Vector2(center.x - 9 + i * 9, plate.end.y - 12), 1.2, Color(wall_color, 0.4 + 0.2 * sin(time * 2.0 - i)))
 		var lower := Rect2(BOARD_ORIGIN + Vector2(column * TILE + 14, 13 * TILE + 14), Vector2(128, 50))
-		_rounded(lower, Color("08121d"), 7, Color(wall_color, 0.22))
+		_rounded(lower, BRAND_STYLE.CHROME, 7, Color(wall_color, 0.22))
 		_text_center("PORT A" if side == 0 else "PORT B", Vector2(lower.get_center().x, lower.position.y + 23), 11, Color(wall_color.lightened(0.2), 0.6), MONO_BOLD)
 		draw_line(lower.position + Vector2(23, 34), lower.position + Vector2(105, 34), Color(wall_color, 0.28), 1.0)
 
 
 func _draw_board_edge_masks() -> void:
 	# Clip wraparound sprites to the screen before they emerge at the other port.
-	draw_rect(Rect2(FRAME_RECT.position.x + 1, BOARD_ORIGIN.y, BOARD_ORIGIN.x - FRAME_RECT.position.x - 1, BOARD_RECT.size.y), Color("0b1119"))
-	draw_rect(Rect2(BOARD_RECT.end.x, BOARD_ORIGIN.y, FRAME_RECT.end.x - BOARD_RECT.end.x - 1, BOARD_RECT.size.y), Color("0b1119"))
+	draw_rect(Rect2(FRAME_RECT.position.x + 1, BOARD_ORIGIN.y, BOARD_ORIGIN.x - FRAME_RECT.position.x - 1, BOARD_RECT.size.y), BRAND_STYLE.CHROME)
+	draw_rect(Rect2(BOARD_RECT.end.x, BOARD_ORIGIN.y, FRAME_RECT.end.x - BOARD_RECT.end.x - 1, BOARD_RECT.size.y), BRAND_STYLE.CHROME)
 
 
 func _draw_tunnel_cues() -> void:
+	var portal_color: Color = _maze_outline_color()
 	var tunnel_y: float = BOARD_ORIGIN.y + (ArcadeMaze.TUNNEL_ROW + 0.5) * TILE
 	for side in 2:
 		var edge: float = BOARD_ORIGIN.x if side == 0 else BOARD_RECT.end.x
 		var x: float = edge - 13 if side == 0 else edge + 13
 		var direction: float = -1.0 if side == 0 else 1.0
 		var alpha: float = 0.6 + 0.2 * sin(time * 3.0)
-		draw_line(Vector2(edge, tunnel_y - 11), Vector2(edge, tunnel_y + 11), Color(CYAN, 0.12), 8.0, true)
-		draw_line(Vector2(edge, tunnel_y - 11), Vector2(edge, tunnel_y + 11), Color(CYAN, alpha), 1.7, true)
+		draw_line(Vector2(edge, tunnel_y - 11), Vector2(edge, tunnel_y + 11), Color(portal_color, 0.12), 8.0, true)
+		draw_line(Vector2(edge, tunnel_y - 11), Vector2(edge, tunnel_y + 11), Color(portal_color, alpha), 1.7, true)
 		for i in 2:
 			var center := Vector2(x - direction * i * 5, tunnel_y)
-			draw_polyline(PackedVector2Array([center + Vector2(-direction * 2, -4), center + Vector2(direction * 2, 0), center + Vector2(-direction * 2, 4)]), Color(CYAN, alpha - i * 0.25), 1.5, true)
+			draw_polyline(PackedVector2Array([center + Vector2(-direction * 2, -4), center + Vector2(direction * 2, 0), center + Vector2(-direction * 2, 4)]), Color(portal_color, alpha - i * 0.25), 1.5, true)
 
 
 func _draw_pickups() -> void:
@@ -741,9 +781,9 @@ func _draw_pickups() -> void:
 			_glow(position, ORANGE, 17, 0.09)
 			draw_circle(position, radius, ORANGE)
 			draw_arc(position, radius + 4, 0, TAU, 32, Color(ORANGE, 0.25 + sin(time * 4.5) * 0.1), 1.0, true)
-			draw_circle(position - Vector2(1.5, 1.5), 2.0, Color("ffc782"))
+			draw_circle(position - Vector2(1.5, 1.5), 2.0, PEACH)
 		else:
-			draw_circle(position, 2.4, Color("cfb998"))
+			draw_circle(position, 2.4, PEACH.darkened(0.17))
 	if game.fork_active:
 		var position: Vector2 = _board_position(Vector2(12, 14)) + Vector2(0, sin(time * 4.0) * 3.0)
 		_glow(position, ORANGE, 20.0, 0.1)
@@ -791,7 +831,7 @@ func _draw_player(position: Vector2) -> void:
 	draw_arc(position, 15.0, angle + chomp, angle + TAU - chomp, 44, ORANGE, 2.4, true)
 	_texture_fit(REDION, Rect2(position - Vector2(11.5, 12), Vector2(23, 24)))
 	if powered:
-		draw_arc(position, 20.0, -time * 3.0, -time * 3.0 + PI * 1.3, 32, Color("ffd8a3"), 1.0, true)
+		draw_arc(position, 20.0, -time * 3.0, -time * 3.0 + PI * 1.3, 32, PEACH, 1.0, true)
 
 
 func _ghost_color(index: int) -> Color:
@@ -855,15 +895,15 @@ func _draw_board_overlay() -> void:
 			GameSession.Phase.GAME_OVER:
 				_center_message("MERGE CONFLICTED.", "ENTER TO RUN IT BACK", ORANGE)
 			GameSession.Phase.CLEAR:
-				_center_message("UPSTREAM CLEARED.", "+1000 / NEXT RELEASE INCOMING", GREEN)
+				_center_message("UPSTREAM CLEARED.", "+1000 / NEXT RELEASE INCOMING", PEACH)
 	elif game.phase == GameSession.Phase.PAUSED:
 		_center_message("CHAOS ON HOLD.", "P / ESC TO RESUME", INK)
 
 
 func _center_message(title: String, subtitle: String, color: Color) -> void:
-	draw_rect(BOARD_RECT, Color(0.015, 0.025, 0.04, 0.6))
+	draw_rect(BOARD_RECT, Color(BRAND_STYLE.INK_DEEP, 0.72))
 	_rounded(Rect2(521, 386, 478, 197), Color(0, 0, 0, 0.35), 17)
-	_rounded(Rect2(528, 379, 464, 197), Color("111a25"), 14, Color(color, 0.4))
+	_rounded(Rect2(528, 379, 464, 197), PANEL, 14, Color(ORANGE, 0.45))
 	draw_line(Vector2(548, 380), Vector2(972, 380), Color(color, 0.8), 2.0)
 	draw_circle(Vector2(760, 420), 22, Color(color, 0.08))
 	var symbol: ICONS.Symbol = ICONS.Symbol.PLAY
@@ -884,15 +924,15 @@ func _draw_footer() -> void:
 
 
 func _draw_credits() -> void:
-	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.015, 0.02, 0.03, 0.88))
+	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(BRAND_STYLE.INK_DEEP, 0.94))
 	_rounded(Rect2(450, 238, 700, 424), PANEL, 16, EDGE)
 	_texture_fit(REDION, Rect2(486, 278, 46, 48))
 	_text("GOOD FORKS GIVE CREDIT.", Vector2(557, 312), 29, INK, BLACK)
 	_text("REDOT LOGO / REDION", Vector2(486, 380), 12, ORANGE, MONO_BOLD)
 	_text("Asrorul Irsyad, 2024. Creative Commons Attribution 4.0.", Vector2(486, 407), 18, INK, REGULAR)
-	_text("GODOT LOGO / UPSTREAM MASCOTS", Vector2(486, 454), 12, CYAN, MONO_BOLD)
+	_text("GODOT LOGO / UPSTREAM MASCOTS", Vector2(486, 454), 12, ORANGE, MONO_BOLD)
 	_text("Andrea Calabró, 2017. Creative Commons Attribution 4.0.", Vector2(486, 481), 18, INK, REGULAR)
-	_text("Lato + JetBrains Mono / SIL Open Font License.", Vector2(486, 529), 17, MUTED, REGULAR)
+	_text("Roboto + JetBrains Mono / SIL Open Font License.", Vector2(486, 529), 17, MUTED, REGULAR)
 	_text("Original maze, arcade effects & procedural chip audio.", Vector2(486, 557), 17, MUTED, REGULAR)
 	_text("Full notices and the original brand kit are in assets/.", Vector2(486, 585), 17, MUTED, REGULAR)
 	_text("ESC / C / CLICK TO GET BACK TO CHOMPING", Vector2(486, 632), 12, ORANGE, MONO)
@@ -944,23 +984,23 @@ func _icon(symbol: ICONS.Symbol, position: Vector2, color: Color, scale_factor: 
 
 func _keycap(rect: Rect2, text: String, key: Key = KEY_NONE) -> void:
 	var held: bool = key != KEY_NONE and Input.is_physical_key_pressed(key)
-	_rounded(rect, Color("352113") if held else Color("1a2532"), 4, ORANGE if held else Color("405166"))
-	draw_line(Vector2(rect.position.x + 5, rect.end.y - 3), rect.end - Vector2(5, 3), Color(ORANGE, 0.35) if held else Color("2d3c50"), 1.0)
+	_rounded(rect, BRAND_STYLE.BRAND_WASH if held else BRAND_STYLE.SURFACE_RAISED, 6, ORANGE if held else BRAND_STYLE.BORDER_STRONG)
+	draw_line(Vector2(rect.position.x + 5, rect.end.y - 3), rect.end - Vector2(5, 3), Color(ORANGE, 0.35) if held else EDGE, 1.0)
 	_text_center(text, rect.get_center() + Vector2(0, 5), 13, ORANGE if held else INK, MONO_BOLD)
 
 
-func _shortcut_badge(rect: Rect2, text: String, color: Color = MUTED, background: Color = Color("1d2937")) -> void:
+func _shortcut_badge(rect: Rect2, text: String, color: Color = MUTED, background: Color = BRAND_STYLE.SURFACE_RAISED) -> void:
 	_rounded(rect, background, 4)
 	_text_center(text, rect.get_center() + Vector2(0, 4), 11, color, MONO_BOLD)
 
 
 func _toolbar_button(rect: Rect2, title: String, key: String, symbol: ICONS.Symbol, active: bool) -> void:
 	var hovered: bool = rect.has_point(mouse_position)
-	var border: Color = ORANGE if hovered else (Color("815329") if active else Color("344354"))
-	_rounded(rect, Color("2a1d13") if active else (Color("202b37") if hovered else PANEL), 8, border)
-	_icon(symbol, Vector2(rect.position.x + 23, rect.get_center().y), ORANGE if active else INK, 0.8)
-	_text(title, Vector2(rect.position.x + 43, rect.get_center().y + 5), 13, ORANGE if active else INK, BOLD)
-	_shortcut_badge(Rect2(rect.end.x - 32, rect.position.y + 14, 21, 22), key, ORANGE if active else MUTED)
+	var border: Color = ORANGE if hovered or active else Color(ORANGE, 0.55)
+	_rounded(rect, BRAND_STYLE.BRAND_WASH if active or hovered else BRAND_STYLE.INK_DEEP, 11, border)
+	_icon(symbol, Vector2(rect.position.x + 23, rect.get_center().y), ORANGE, 0.8)
+	_text(title, Vector2(rect.position.x + 43, rect.get_center().y + 5), 13, ORANGE, BOLD)
+	_shortcut_badge(Rect2(rect.end.x - 32, rect.position.y + 14, 21, 22), key, ORANGE)
 
 
 func _draw_toolbar_tooltip() -> void:
@@ -982,7 +1022,7 @@ func _draw_toolbar_tooltip() -> void:
 	var width: float = REGULAR.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 24
 	var rect := Rect2(clampf(center_x - width * 0.5, 60, 1540 - width), 89, width, 27)
 	_rounded(Rect2(rect.position + Vector2(0, 3), rect.size), Color(0, 0, 0, 0.35), 6)
-	_rounded(rect, Color("1a2633"), 6, Color("3b4d63"))
+	_rounded(rect, PANEL, 8, Color(ORANGE, 0.35))
 	_text_center(text, Vector2(rect.get_center().x, rect.position.y + 18), 13, INK, REGULAR)
 
 

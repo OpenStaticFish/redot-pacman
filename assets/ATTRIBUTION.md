@@ -13,6 +13,17 @@ with additional arcade effects drawn around it.
 Lato and JetBrains Mono are included from the brand kit, under the SIL Open Font
 License. Their original licenses accompany the extracted fonts in `assets/fonts/`.
 
+## Website typography and visual direction
+
+The UI follows the current [Redot website](https://www.redotengine.org/) and its
+published palette: ink `#09090B`, graphite `#17171B` / `#202026`, orange-red
+`#FF3B0A`, and warm peach highlights. The native pixel backdrop and gradient text
+shaders are original implementations inspired by that visual direction.
+
+Roboto © 2011 The Roboto Project Authors, downloaded from
+[Google Fonts](https://github.com/google/fonts/tree/main/ofl/roboto), is licensed
+under the SIL Open Font License 1.1. Its notice is in `assets/fonts/Roboto-OFL.txt`.
+
 ## Godot ghost mascots
 
 The Godot icon is from the official [Godot press kit](https://godotengine.org/press/).
