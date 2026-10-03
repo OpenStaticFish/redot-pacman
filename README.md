@@ -6,6 +6,30 @@ A native Redot/Godot arcade maze game built for deeply unserious marketing.
 Play as **Redion**, the Redot mascot, dodge the Godot-logo upstream ghosts,
 and grab a power dot to turn your upstream into a snack.
 
+**Made with Redot · Website-matched UI · Keyboard, gamepad & touch**
+
+## Gameplay video
+
+[![Watch DOT EATER gameplay: the blue maze turns Redot red during power mode](marketing/dot-eater-demo.gif)](marketing/dot-eater-x.mp4)
+
+**[▶ Watch the full gameplay video with audio](marketing/dot-eater-x.mp4)**
+— **2560 × 1440 · 60 FPS · 20 seconds**
+
+The animated preview above is made from the actual recorded run. Click it or the
+video link for the full-resolution MP4 with the original chip music and arcade
+sound effects.
+
+### The fork has an appetite
+
+- **Classic maze rules:** 218 dots, single-width looping lanes, warp tunnels,
+  three lives, and four ghost personalities.
+- **Flip the food chain:** a power dot turns the blue maze Redot red and lets
+  Redion eat upstream ghosts for escalating **200 / 400 / 800 / 1600** combos.
+- **Redot after hours:** the website's orange-red palette, Roboto headings,
+  warm text gradients, graphite cards, and pixel-blast background.
+- **Ready for a clip:** real AI-driven autoplay, bonus forks, cheeky commit-log
+  messages, and native 1440p capture.
+
 ## Play
 
 Open `project.godot` in **Redot 26.2** and press **F6/F5**, or run:
@@ -51,6 +75,11 @@ GDScript and the Compatibility renderer.
 
 Ready-made files are in `marketing/`: 1440p gameplay stills and a **20-second,
 2560 × 1440, 60 FPS MP4** with arcade audio.
+
+- [Full gameplay video with audio](marketing/dot-eater-x.mp4)
+- [Animated README preview](marketing/dot-eater-demo.gif)
+- [Blue-maze screenshot](marketing/dot-eater-preview.png)
+- [Red power-mode screenshot](marketing/dot-eater-power.png)
 
 The UI is composed at **1600 × 900 (16:9)** and rendered natively at **2560 × 1440**
 for capture. Movie Maker uses a `movie` feature override for that window size.

@@ -1,5 +1,7 @@
 # Ready-to-post chaos
 
+- `dot-eater-demo.gif` — 20-second animated README preview, generated from the
+  final MP4 at 960 × 540 and 12 FPS. Click the README preview to open the full video.
 - `dot-eater-preview.png` — clean 2560 × 1440 gameplay still showing the classic blue
   single-width maze, warp-port wall panels, and website-matched Redot HUD.
 - `dot-eater-power.png` — Redot-red power-mode maze, segmented timer, and ghost combo.
